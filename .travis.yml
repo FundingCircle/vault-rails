@@ -7,12 +7,11 @@ env:
   - VAULT_VERSION=0.10.4
   - VAULT_VERSION=0.9.6
   - VAULT_VERSION=0.8.3
-  - VAULT_VERSION=0.7.3
 
 gemfile:
   - Gemfile
-  - gemfiles/rails_4.1.gemfile
-  - gemfiles/rails_4.2.gemfile
+  - gemfiles/rails_4.2.8.gemfile
+  - gemfiles/rails_5.2.1.gemfile
 
 before_install:
   - wget -O vault.zip -q https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
@@ -26,17 +25,12 @@ branches:
     - master
 
 rvm:
-  - 2.2.8
-  - 2.3.5
+  - 2.2.2
+  - 2.3.3
+  - 2.3.6
   - 2.4.2
-
-matrix:
-  exclude:
-    # Rails 4.1 cannot build json gem dependency any longer with Ruby 2.4
-    - rvm: 2.4.2
-      gemfile: gemfiles/rails_4.1.gemfile
-    - rvm: 2.4.2
-      gemfile: gemfiles/rails_4.2.gemfile
+  - 2.4.4
+  - 2.5.1
 
 before_script:
   - bundle exec rake app:db:create

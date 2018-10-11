@@ -37,10 +37,10 @@ module Vault
       #   a proc to encode the value with
       # @option options [Proc] :decode
       #   a proc to decode the value with
-      def vault_attribute(attribute, options = {})
-        encrypted_column = options[:encrypted_column] || "#{attribute}_encrypted"
+      def vault_attribute(attribute_name, options = {})
+        encrypted_column = options[:encrypted_column] || "#{attribute_name}_encrypted"
         path = options[:path] || "transit"
-        key = options[:key] || "#{Vault::Rails.application}_#{table_name}_#{attribute}"
+        key = options[:key] || "#{Vault::Rails.application}_#{table_name}_#{attribute_name}"
         convergent = options.fetch(:convergent, false)
 
         # Sanity check options!
@@ -62,50 +62,31 @@ module Vault
           serializer.define_singleton_method(:decode, &options[:decode])
         end
 
-        # Getter
-        define_method("#{attribute}") do
-          if instance_variable_defined?("@#{attribute}")
-            return instance_variable_get("@#{attribute}")
-          end
+        attribute_type = options.fetch(:type, :value)
 
-          __vault_load_attribute!(attribute, self.class.__vault_attributes[attribute])
+        if attribute_type.is_a?(Symbol)
+          attribute_type = attribute_type.to_s.camelize
+          attribute_type = ActiveRecord::Type.const_get(attribute_type).new
+        end
+
+        # Attribute API
+        attribute(attribute_name, attribute_type)
+
+        # Getter
+        define_method(attribute_name) do
+          read_attribute(attribute_name) || __vault_load_attribute!(attribute_name, self.class.__vault_attributes[attribute_name])
         end
 
         # Setter
-        define_method("#{attribute}=") do |value|
-          # We always set it as changed without comparing with the current value
-          # because we allow our held values to be mutated, so we need to assume
-          # that if you call attr=, you want it send back regardless.
-          attribute_will_change!("#{attribute}")
-          instance_variable_set("@#{attribute}", value)
+        define_method("#{attribute_name}=") do |value|
+          # Force the update of the attribute, to be sonsistent with old behaviour
+          attribute_will_change!(attribute_name)
+          write_attribute(attribute_name, value)
         end
 
-        # Checker
-        define_method("#{attribute}?") do
-          send("#{attribute}").present?
-        end
-
-        # Dirty method
-        define_method("#{attribute}_change") do
-          changes["#{attribute}"]
-        end
-
-        # Dirty method
-        define_method("#{attribute}_changed?") do
-          changed.include?("#{attribute}")
-        end
-
-        # Dirty method
-        define_method("#{attribute}_was") do
-          if changes["#{attribute}"]
-            changes["#{attribute}"][0]
-          else
-            public_send("#{attribute}")
-          end
-        end
 
         # Make a note of this attribute so we can use it in the future (maybe).
-        __vault_attributes[attribute.to_sym] = {
+        __vault_attributes[attribute_name.to_sym] = {
           key: key,
           path: path,
           serializer: serializer,
@@ -114,12 +95,6 @@ module Vault
         }
 
         self
-      end
-
-      # Encrypt Vault attribures before saving them
-      def vault_persist_before_save!
-        skip_callback :save, :after, :__vault_persist_attributes!
-        before_save :__vault_encrypt_attributes!
       end
 
       # The list of Vault attributes.
@@ -164,16 +139,12 @@ module Vault
       # Vault and decrypt any attributes unless vault_lazy_decrypt is set.
       after_initialize :__vault_load_attributes!
 
-      # After we save the record, persist all the values to Vault and reload
-      # them attributes from Vault to ensure we have the proper attributes set.
-      # The reason we use `after_save` here is because a `before_save` could
-      # run too early in the callback process. If a user is changing Vault
-      # attributes in a callback, it is possible that our callback will run
-      # before theirs, resulting in attributes that are not persisted.
-      after_save :__vault_persist_attributes!
+      # The reason we use `before_save` here is to avoid multiple queries
+      # to the database. Also, Rails 5.2 changes the behaviour of dirty
+      # attribures and makes it difficult to track changes in virtual attributes.
+      before_save :__vault_encrypt_attributes!
 
       # Decrypt all the attributes from Vault.
-      # @return [true]
       def __vault_load_attributes!
         return if self.class.vault_lazy_decrypt?
 
@@ -184,6 +155,9 @@ module Vault
 
       # Decrypt and load a single attribute from Vault.
       def __vault_load_attribute!(attribute, options)
+        # If the user provided a value for the attribute, do not try to load it from Vault
+        return if attribute_changed?(attribute)
+
         key        = options[:key]
         path       = options[:path]
         serializer = options[:serializer]
@@ -193,9 +167,6 @@ module Vault
         # Load the ciphertext
         ciphertext = read_attribute(column)
 
-        # If the user provided a value for the attribute, do not try to load it from Vault
-        return if instance_variable_get("@#{attribute}")
-
         # Load the plaintext value
         plaintext = Vault::Rails.decrypt(path, key, ciphertext, Vault.client, convergent)
 
@@ -203,42 +174,22 @@ module Vault
         plaintext = serializer.decode(plaintext) if serializer
 
         # Write the virtual attribute with the plaintext value
-        instance_variable_set("@#{attribute}", plaintext)
-      end
-
-      # Encrypt all the attributes using Vault and set the encrypted values back
-      # on this model.
-      # @return [true]
-      def __vault_persist_attributes!
-        changes = __vault_encrypt_attributes!
-
-        # If there are any changes to the model, update them all at once,
-        # skipping any callbacks and validation. This is okay, because we are
-        # already in a transaction due to the callback.
-        self.update_columns(changes) if !changes.empty?
-
-        true
+        write_attribute(attribute, plaintext)
       end
 
       def __vault_encrypt_attributes!
-        changes = {}
-
         self.class.__vault_attributes.each do |attribute, options|
-          if c = self.__vault_encrypt_attribute!(attribute, options)
-            changes.merge!(c)
-          end
-        end
+          # Only persist changed attributes to minimize requests - this helps
+          # minimize the number of requests to Vault.
+          next unless attribute_changed?(attribute)
 
-        changes
+          self.__vault_encrypt_attribute!(attribute, options)
+        end
       end
 
       # Encrypt a single attribute using Vault and persist back onto the
       # encrypted attribute value.
       def __vault_encrypt_attribute!(attribute, options)
-        # Only persist changed attributes to minimize requests - this helps
-        # minimize the number of requests to Vault.
-        return unless changed.include?("#{attribute}")
-
         key        = options[:key]
         path       = options[:path]
         serializer = options[:serializer]
@@ -246,12 +197,10 @@ module Vault
         convergent = options[:convergent]
 
         # Get the current value of the plaintext attribute
-        plaintext = instance_variable_get("@#{attribute}")
+        plaintext = read_attribute(attribute)
 
         # Apply the serialize to the plaintext value, if one exists
-        if serializer
-          plaintext = serializer.encode(plaintext)
-        end
+        plaintext = serializer.encode(plaintext) if serializer
 
         # Generate the ciphertext and store it back as an attribute
         ciphertext = Vault::Rails.encrypt(path, key, plaintext, Vault.client, convergent)
@@ -259,24 +208,32 @@ module Vault
         # Write the attribute back, so that we don't have to reload the record
         # to get the ciphertext
         write_attribute(column, ciphertext)
-
-        # Return the updated column so we can save
-        { column => ciphertext }
       end
 
-      # Override the reload method to reload the Vault attributes. This will
+      def save(*)
+        super.tap do
+          changes_applied
+        end
+      end
+
+      def save!(*)
+        super.tap do
+          changes_applied
+        end
+      end
+
+      # verride the reload method to reload the Vault attributes. This will
       # ensure that we always have the most recent data from Vault when we
       # reload a record from the database.
       def reload(*)
         super.tap do
           # Unset all the instance variables to force the new data to be pulled from Vault
           self.class.__vault_attributes.each do |attribute, _|
-            if instance_variable_defined?("@#{attribute}")
-              self.remove_instance_variable("@#{attribute}")
-            end
+            write_attribute(attribute, nil)
           end
 
           self.__vault_load_attributes!
+          clear_changes_information
         end
       end
     end
