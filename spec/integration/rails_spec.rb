@@ -20,6 +20,7 @@ describe Vault::Rails do
 
     it "decrypts attributes" do
       person = Person.create!(ssn: "123-45-6789")
+
       person.reload
 
       expect(person.ssn).to eq("123-45-6789")
@@ -71,21 +72,24 @@ describe Vault::Rails do
       expect(person.ssn).to eq("")
     end
 
-    it "loads instance variables on initialize" do
+    it "loads attributes on initialize" do
       person = Person.create!(ssn: '123-45-6789', non_ascii: 'some text')
-      found_person = Person.find(person.id)
 
-      expect(found_person.instance_variable_get(:@ssn)).to eq('123-45-6789')
-      expect(found_person.instance_variable_get(:@non_ascii)).to eq('some text')
+      expect_any_instance_of(Person).to receive(:__vault_load_attributes!).once.and_call_original
+      Person.__vault_attributes.keys.each do |attr|
+        expect_any_instance_of(Person).to receive(:__vault_load_attribute!).with(attr, any_args).once
+      end
+
+      Person.find(person.id)
     end
 
-    it "reloads instance variables on reload" do
+    it "reloads attributes on reload" do
       person = Person.create!(ssn: "123-45-6789")
-      expect(person.instance_variable_get(:@ssn)).to eq("123-45-6789")
+      expect(person.ssn).to eq("123-45-6789")
 
       person.ssn = "111-11-1111"
       person.reload
-      expect(person.instance_variable_get(:@ssn)).to eq("123-45-6789")
+      expect(person.ssn).to eq("123-45-6789")
     end
 
     it "does not try to encrypt unchanged attributes" do
@@ -117,32 +121,34 @@ describe Vault::Rails do
     end
 
     it "does not decrypt on initialization" do
-      person = LazyPerson.create!(ssn: "123-45-6789")
+      lazy_person = LazyPerson.create!(ssn: "123-45-6789")
 
-      found_person = LazyPerson.find(person.id)
+      expect_any_instance_of(LazyPerson).not_to receive(:__vault_load_attribute!)
 
-      expect(found_person.instance_variable_get("@ssn")).to eq(nil)
-      expect(found_person.ssn).to eq("123-45-6789")
+      LazyPerson.find(lazy_person.id)
     end
 
     it 'only decrypts attributes that are used' do
       person = LazyPerson.create!(ssn: "123-45-6789", non_ascii: 'some text')
 
       found_person = LazyPerson.find(person.id)
-      expect(found_person.instance_variable_get(:@ssn)).to be_nil
+
+      expect_any_instance_of(LazyPerson).not_to receive(:__vault_load_attributes!)
+      expect_any_instance_of(LazyPerson).not_to receive(:__vault_load_attribute!).with(:non_ascii, any_args)
+
+      expect(found_person).to receive(:__vault_load_attribute!).with(:ssn, any_args).once
 
       found_person.ssn
-
-      expect(found_person.instance_variable_get(:@ssn)).not_to be_nil
-      expect(found_person.instance_variable_get(:@non_ascii)).to be_nil
     end
 
     it 'does not decrypt attributes on reload' do
       person = LazyPerson.create!(ssn: "123-45-6789", non_ascii: 'some text')
-      expect(person.instance_variable_get(:@ssn)).not_to be_nil
+      expect(person.ssn).not_to be_nil
+
+      expect(person).to receive(:__vault_load_attributes!).once
+      expect(person).not_to receive(:__vault_load_attribute!)
 
       person.reload
-      expect(person.instance_variable_get(:@ssn)).to be_nil
     end
 
     it "tracks dirty attributes" do
@@ -190,11 +196,14 @@ describe Vault::Rails do
       expect(person.ssn).to eq("")
     end
 
-    it "reloads instance variables on reload" do
+    it "resets attributes on reload" do
       person = LazyPerson.create!(ssn: "123-45-6789")
-      expect(person.instance_variable_get(:@ssn)).to eq("123-45-6789")
+      expect(person.ssn).to eq("123-45-6789")
 
       person.ssn = "111-11-1111"
+
+      expect(person).to receive(:__vault_load_attributes!).once
+
       person.reload
 
       expect(person.ssn).to eq("123-45-6789")
