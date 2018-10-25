@@ -200,6 +200,13 @@ module Vault
         end
       end
 
+      # In ActiveRecord 4.2, virtual attributes are not excluded from joins aliases
+      if respond_to?(:persistable_attribute_names)
+        def self.column_names
+          super & persistable_attribute_names
+        end
+      end
+
       # Decrypt and load a single attribute from Vault.
       def __vault_load_attribute!(attribute, options)
         # If the user provided a value for the attribute, do not try to load it from Vault
