@@ -23,6 +23,7 @@ class Person < ActiveRecord::Base
     key: "people_credit_cards"
 
   vault_attribute :details,
+    type: :value,
     serialize: :json
 
   vault_attribute :business_card,
