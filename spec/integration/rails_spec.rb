@@ -258,6 +258,23 @@ describe Vault::Rails do
       expect(person.credit_card).to be(nil)
     end
 
+    it 'unsets the encrypted column' do
+      person = Person.create!(credit_card: "1234567890111213")
+      person.credit_card = nil
+
+      expect(person.credit_card).to be(nil)
+      expect(person.cc_encrypted).to be(nil)
+    end
+
+    it 'getter does not reset the encrypred attribute' do
+      person = Person.create!(credit_card: "1234567890212223")
+      person.credit_card = nil
+
+      person.credit_card
+
+      expect(person.credit_card).to be(nil)
+    end
+
     it "allows attributes to be blank" do
       person = Person.create!(credit_card: "1234567890111213")
       person.update_attributes!(credit_card: "")

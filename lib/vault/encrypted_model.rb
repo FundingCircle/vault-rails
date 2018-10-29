@@ -86,6 +86,10 @@ module Vault
         define_method("#{attribute_name}=") do |value|
           # Force the update of the attribute, to be consistent with old behaviour
           attribute_will_change!(attribute_name)
+
+          # Set the encrypted column to nil in the setter so that the getter
+          # does not reset the attribute value to the previous one when it's being to nil.
+          write_attribute(encrypted_column, nil)
           write_attribute(attribute_name, value)
         end
 
