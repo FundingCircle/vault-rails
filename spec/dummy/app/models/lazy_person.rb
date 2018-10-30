@@ -2,6 +2,7 @@ require "binary_serializer"
 
 class LazyPerson < ActiveRecord::Base
   include Vault::EncryptedModel
+  include Vault::AttributeProxy
 
   self.table_name = "people"
 

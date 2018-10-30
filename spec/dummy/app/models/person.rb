@@ -2,6 +2,13 @@ require "binary_serializer"
 
 class Person < ActiveRecord::Base
   include Vault::EncryptedModel
+  include Vault::AttributeProxy
+
+  vault_attribute :county_plaintext, encrypted_column: :county_encrypted
+  vault_attribute_proxy :county, :county_plaintext
+
+  vault_attribute :state_plaintext, encrypted_column: :state_encrypted
+  vault_attribute_proxy :state, :state_plaintext, encrypted_attribute_only: true
 
   vault_attribute :ssn
 
