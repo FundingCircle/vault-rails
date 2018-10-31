@@ -4,6 +4,9 @@ class Person < ActiveRecord::Base
   include Vault::EncryptedModel
   include Vault::AttributeProxy
 
+  vault_attribute :date_of_birth_plaintext
+  vault_attribute_proxy :date_of_birth, :date_of_birth_plaintext, type: :date
+
   vault_attribute :county_plaintext, encrypted_column: :county_encrypted
   vault_attribute_proxy :county, :county_plaintext
 

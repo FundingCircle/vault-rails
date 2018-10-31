@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20181017154000) do
+ActiveRecord::Schema.define(version: 20181030234312) do
 
   create_table "people", force: :cascade do |t|
     t.string   "name"
@@ -27,6 +27,8 @@ ActiveRecord::Schema.define(version: 20181017154000) do
     t.string   "county_encrypted"
     t.string   "state"
     t.string   "state_encrypted"
+    t.string   "date_of_birth"
+    t.string   "date_of_birth_encrypted"
   end
 
 end

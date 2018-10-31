@@ -10,6 +10,9 @@ class LazyPerson < ActiveRecord::Base
 
   vault_attribute :ssn
 
+  vault_attribute :date_of_birth_plaintext
+  vault_attribute_proxy :date_of_birth, :date_of_birth_plaintext, type: :date
+
   vault_attribute :credit_card,
     encrypted_column: :cc_encrypted,
     path: "credit-secrets",
