@@ -1,5 +1,22 @@
 # Vault Rails Changelog
 
+## v0.6.3 (October 31, 2018)
+
+NEW FEATURES
+- Allow specifying type information on `vault_attribute_proxy` definitions.
+  This allows the proxied attribute to convert between strings (what all
+  values ultimately are when send to vault for encryption) and the typed
+  representation that we'd otherwise get from a traditional activerecord
+  database-backed attribute.
+
+## v0.6.2 (October 30, 2018)
+
+NEW FEATURES
+- Introduce `vault_attribute_proxy` via including Vault::AttributeProxy.
+  This acts to unify an existing plaintext column with a new encryped
+  column defined as a `vault_attribute`.  Allowing a staged transition to
+  a fully encrypted attribute at a later date.
+
 ## v0.6.1 (October 16, 2018)
 
 NEW FEATURES
