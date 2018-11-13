@@ -1,6 +1,42 @@
 require "spec_helper"
 
 describe Vault::EncryptedModel do
+  describe 'query methods' do
+    let!(:person) { Person.create }
+    let!(:small_problem) { Problem.create person: person, title: 'small problem' }
+    let!(:big_problem) { Problem.create person: person, title: 'big problem' }
+
+    it 'works with includes' do
+      expect do
+        Person.where(id: person.id).includes(:problems).first
+      end.not_to raise_error
+    end
+
+    it 'works with where and references' do
+      expect do
+        Person.includes(:problems).where('problems.title like ?', '%small%').references(:problems).first
+      end.not_to raise_error
+    end
+
+    it 'works with where and association hash' do
+      expect do
+        Problem.where(person: person).first
+      end.not_to raise_error
+    end
+
+    it 'works with joins' do
+      expect do
+        Person.where(id: person.id).joins(:problems).first
+      end.not_to raise_error
+    end
+
+    it 'works with joins and includes' do
+      expect do
+        Person.joins(:problems).includes(:problems).first
+      end.not_to raise_error
+    end
+  end
+
   describe ".vault_attribute" do
     let(:person) { Person.new }
 

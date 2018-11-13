@@ -1,3 +1,4 @@
+require 'active_record'
 require 'vault'
 
 require 'base64'
@@ -11,6 +12,10 @@ require_relative 'rails/serializers/date_serializer'
 require_relative 'rails/serializers/integer_serializer'
 require_relative 'rails/serializers/float_serializer'
 require_relative 'rails/version'
+
+if ActiveRecord.version < Gem::Version.new('5.0.0')
+  require_relative 'active_record/associations/join_dependency/join_part'
+end
 
 module Vault
   module Rails

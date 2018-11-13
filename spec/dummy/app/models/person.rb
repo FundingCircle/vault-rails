@@ -3,6 +3,12 @@ require "binary_serializer"
 class Person < ActiveRecord::Base
   include Vault::EncryptedModel
 
+  has_many :problems
+
+  before_validation :format_ssn, if: -> { ssn_changed? }
+
+  def format_ssn; end
+
   vault_attribute :county_plaintext, encrypted_column: :county_encrypted
   vault_attribute_proxy :county, :county_plaintext
 
