@@ -1,5 +1,12 @@
 # Vault Rails Changelog
 
+## v0.6.4 (November 13, 2018)
+
+NEW FEATURES
+- Allow batch encryption and decryption.
+  Now there is an option to encrypt or decrypt multiple strings at once.
+  All items to be encrypted/decrypted should use the same path, key and client.
+
 ## v0.6.3 (October 31, 2018)
 
 NEW FEATURES
