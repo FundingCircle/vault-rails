@@ -62,7 +62,7 @@ module Vault
           serializer.define_singleton_method(:decode, &options[:decode])
         end
 
-        attribute_type = options.fetch(:type, :value)
+        attribute_type = options.fetch(:type, :string)
 
         if attribute_type.is_a?(Symbol)
           constant_name = attribute_type.to_s.camelize
