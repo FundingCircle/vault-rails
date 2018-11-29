@@ -1,5 +1,12 @@
 # Vault Rails Changelog
 
+## v0.6.5 (November 28, 2018)
+
+IMPROVEMENTS
+- Add `EncryptedModel.vault_persist_all` for encrypting and saving one attribute of multiple records with just one call to Vault
+- Add `EncryptedModel.vault_load_all` for decrypting and loading one attribute of multiple records with just one call to Vault
+- Allow blank values like `nil` and empty string as input to batch encryption and decryption
+
 ## v0.6.4 (November 13, 2018)
 
 NEW FEATURES
