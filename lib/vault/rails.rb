@@ -5,6 +5,7 @@ require 'json'
 
 require_relative 'encrypted_model'
 require_relative 'attribute_proxy'
+require_relative 'perform_in_batches'
 require_relative 'rails/configurable'
 require_relative 'rails/errors'
 require_relative 'rails/serializers/json_serializer'
@@ -201,7 +202,7 @@ module Vault
 
       # Perform in-memory encryption. This is useful for testing and development.
       def memory_batch_encrypt(path, key, plaintexts, _client)
-        plaintexts.map { |plaintext| memory_encrypt(path, key, ciphertext, _client, true) }
+        plaintexts.map { |plaintext| memory_encrypt(path, key, plaintext, _client, true) }
       end
 
       # Perform in-memory decryption. This is useful for testing and development.
@@ -259,7 +260,9 @@ module Vault
           derived: true
         }
 
-        batch_input = plaintexts.map do |plaintext|
+        # Only present values can be encrypted by Vault. Empty values should be returned as they are.
+        non_empty_plaintexts = plaintexts.select { |plaintext| plaintext.present? }
+        batch_input = non_empty_plaintexts.map do |plaintext|
           {
             context: Base64.strict_encode64(Vault::Rails.convergent_encryption_context),
             plaintext: Base64.strict_encode64(plaintext)
@@ -269,7 +272,11 @@ module Vault
         options.merge!(batch_input: batch_input)
 
         secret = client.logical.write(route, options)
-        secret.data[:batch_results].map { |result| result[:ciphertext] }
+        vault_results = secret.data[:batch_results].map { |result| result[:ciphertext] }
+
+        plaintexts.map do |plaintext|
+          plaintext.present? ? vault_results.shift : plaintext
+        end
       end
 
       # Perform decryption using Vault. This will raise exceptions if Vault is
@@ -296,18 +303,22 @@ module Vault
 
         route = File.join(path, 'decrypt', key)
 
-
-        batch_input = ciphertexts.map do |ciphertext|
+        # Only present values can be decrypted by Vault. Empty values should be returned as they are.
+        non_empty_ciphertexts = ciphertexts.select { |ciphertext| ciphertext.present? }
+        batch_input = non_empty_ciphertexts.map do |ciphertext|
           {
             context: Base64.strict_encode64(Vault::Rails.convergent_encryption_context),
             ciphertext: ciphertext
           }
         end
-
         options = { batch_input: batch_input }
 
         secret = client.logical.write(route, options)
-        secret.data[:batch_results].map { |result| Base64.strict_decode64(result[:plaintext]) }
+        vault_results = secret.data[:batch_results].map { |result| Base64.strict_decode64(result[:plaintext]) }
+
+        ciphertexts.map do |ciphertext|
+          ciphertext.present? ? vault_results.shift : ciphertext
+        end
       end
 
       # The symmetric key for the given params.
@@ -320,7 +331,7 @@ module Vault
       # newly encoded string.
       # @return [String]
       def force_encoding(str)
-        str.force_encoding(Vault::Rails.encoding).encode(Vault::Rails.encoding)
+        str.blank? ? str : str.force_encoding(Vault::Rails.encoding).encode(Vault::Rails.encoding)
       end
 
       private
