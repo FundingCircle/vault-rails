@@ -4,6 +4,7 @@
 
 NEW FEATURES
 - New serializers for `time` and `datetime`
+- New serializer for `ipaddr`.
 
 ## v0.6.5 (November 28, 2018)
 
