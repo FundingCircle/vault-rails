@@ -1,5 +1,10 @@
 # Vault Rails Changelog
 
+## Unreleased
+
+NEW FEATURES
+- New serializers for `time` and `datetime`
+
 ## v0.6.5 (November 28, 2018)
 
 IMPROVEMENTS
