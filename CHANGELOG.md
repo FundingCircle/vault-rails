@@ -1,5 +1,10 @@
 # Vault Rails Changelog
 
+## v0.6.7 (December 7, 2018)
+
+BUG FIXES
+- Handle the case when plaintexts/ciphertexts parameter of #vault_batch_encrypt/#vault_batch_decrypt is an array with only blank values
+
 ## v0.6.6 (December 3, 2018)
 
 NEW FEATURES
