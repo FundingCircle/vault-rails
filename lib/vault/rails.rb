@@ -259,6 +259,10 @@ module Vault
       def vault_batch_encrypt(path, key, plaintexts, client)
         return [] if plaintexts.empty?
 
+        # Only present values can be encrypted by Vault. Empty values should be returned as they are.
+        non_empty_plaintexts = plaintexts.select { |plaintext| plaintext.present? }
+        return plaintexts if non_empty_plaintexts.empty? # nothing to encrypt
+
         route = File.join(path, 'encrypt', key)
 
         options = {
@@ -266,8 +270,6 @@ module Vault
           derived: true
         }
 
-        # Only present values can be encrypted by Vault. Empty values should be returned as they are.
-        non_empty_plaintexts = plaintexts.select { |plaintext| plaintext.present? }
         batch_input = non_empty_plaintexts.map do |plaintext|
           {
             context: Base64.strict_encode64(Vault::Rails.convergent_encryption_context),
@@ -307,10 +309,12 @@ module Vault
       def vault_batch_decrypt(path, key, ciphertexts, client)
         return [] if ciphertexts.empty?
 
-        route = File.join(path, 'decrypt', key)
-
         # Only present values can be decrypted by Vault. Empty values should be returned as they are.
         non_empty_ciphertexts = ciphertexts.select { |ciphertext| ciphertext.present? }
+        return ciphertexts if non_empty_ciphertexts.empty?
+
+        route = File.join(path, 'decrypt', key)
+
         batch_input = non_empty_ciphertexts.map do |ciphertext|
           {
             context: Base64.strict_encode64(Vault::Rails.convergent_encryption_context),

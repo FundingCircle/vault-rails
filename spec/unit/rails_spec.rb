@@ -157,6 +157,15 @@ describe Vault::Rails do
       expect(Vault::Rails.batch_encrypt('path', 'key', ['plaintext1', 'plaintext2'], Vault::Rails.client)).to eq(%w(ciphertext1 ciphertext2))
     end
 
+    context 'with only blank values' do
+      it 'does not make any calls to Vault and just return the plaintexts' do
+        expect(Vault::Rails.client.logical).not_to receive(:write)
+
+        plaintexts = ['', '', nil, '', nil, nil]
+        expect(Vault::Rails.batch_encrypt('path', 'key', plaintexts, Vault::Rails.client)).to eq(plaintexts)
+      end
+    end
+
     context 'with presented blank values' do
       it 'sends the correct parameters to vault client' do
         expected_route = 'path/encrypt/key'
@@ -256,6 +265,16 @@ describe Vault::Rails do
         .and_return(instance_double('Vault::Secret', data: {:batch_results=>[{:plaintext=>'cGxhaW50ZXh0MQ=='}, {:plaintext=>'cGxhaW50ZXh0Mg=='}]}))
 
       expect(Vault::Rails.batch_decrypt('path', 'key', ['ciphertext1', 'ciphertext2'], Vault::Rails.client)).to eq( %w(plaintext1 plaintext2)) # in that order
+    end
+
+    context 'with only blank values' do
+      it 'does not make any calls to Vault and just return the ciphertexts' do
+        expect(Vault::Rails.client.logical).not_to receive(:write)
+
+        ciphertexts = ['', '', nil, '', nil, nil]
+
+        expect(Vault::Rails.batch_decrypt('path', 'key', ciphertexts, Vault::Rails.client)).to eq(ciphertexts)
+      end
     end
 
     context 'with presented blank values' do
