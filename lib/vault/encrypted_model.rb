@@ -159,10 +159,10 @@ module Vault
       end
 
       # works only with convergent encryption
-      def vault_persist_all(attribute, records, plaintexts)
+      def vault_persist_all(attribute, records, plaintexts, validate: true)
         options = __vault_attributes[attribute]
 
-        Vault::PerformInBatches.new(attribute, options).encrypt(records, plaintexts)
+        Vault::PerformInBatches.new(attribute, options).encrypt(records, plaintexts, validate: validate)
       end
 
       # works only with convergent encryption
