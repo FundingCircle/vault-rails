@@ -1,5 +1,10 @@
 # Vault Rails Changelog
 
+## v0.6.10 (March 6, 2019)
+
+IMPROVEMENTS
+- Updates error message when `vault_uniqueness` is used, so now the `vault_attribute`'s name is used rather than the encrypted column name
+
 ## v0.6.9 (January 10, 2019)
 
 NEW FEATURES
