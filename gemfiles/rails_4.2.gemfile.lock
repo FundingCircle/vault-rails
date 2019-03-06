@@ -2,7 +2,7 @@ PATH
   remote: ..
   specs:
     fc-vault-rails (0.6.9)
-      activerecord (>= 4.2, < 5.1)
+      activerecord (>= 4.2, < 5.0)
       vault (~> 0.7)
 
 GEM
@@ -145,7 +145,7 @@ DEPENDENCIES
   rails (~> 4.2.0)
   rake (~> 10.0)
   rspec (~> 3.2)
-  sqlite3
+  sqlite3 (~> 1.3.6)
   wwtd
 
 BUNDLED WITH
