@@ -1,5 +1,17 @@
 # Vault Rails Changelog
 
+## v0.6.11 (March 8, 2019)
+
+NEW FEATURES
+- Added `encrypted_find_by` finds the first encrypted record matching the specified conditions
+- Added `encrypted_find_by!` like `encrypted_find_by`, except that if no record is found, raises an `ActiveRecord::RecordNotFound` error.
+
+IMPROVEMENTS
+- `find_by_vault_attributes` renamed to `encrypted_where` as it returns a relation rather than a single record
+
+BREAKING CHANGES
+- `find_by_vault_attributes` renamed to `encrypted_where`
+
 ## v0.6.10 (March 6, 2019)
 
 IMPROVEMENTS
