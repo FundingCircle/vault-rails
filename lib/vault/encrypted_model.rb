@@ -73,11 +73,12 @@ module Vault
 
         # Setter
         define_method("#{attribute}=") do |value|
+          cast_value = cast_value_to_type(options, value)
           # We always set it as changed without comparing with the current value
           # because we allow our held values to be mutated, so we need to assume
           # that if you call attr=, you want it send back regardless.
           attribute_will_change!("#{attribute}")
-          instance_variable_set("@#{attribute}", value)
+          instance_variable_set("@#{attribute}", cast_value)
         end
 
         # Checker
@@ -266,6 +267,17 @@ module Vault
 
         # Write the virtual attribute with the plaintext value
         instance_variable_set("@#{attribute}", plaintext)
+      end
+
+      def cast_value_to_type(options, value)
+        type_constant_name = options.fetch(:type, :value).to_s.camelize
+        type = ActiveRecord::Type.const_get(type_constant_name).new
+
+        if type.respond_to?(:type_cast_from_user)
+          type.type_cast_from_user(value)
+        else
+          value
+        end
       end
 
       # Encrypt all the attributes using Vault and set the encrypted values back

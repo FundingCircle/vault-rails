@@ -4,8 +4,8 @@ class Person < ActiveRecord::Base
   include Vault::EncryptedModel
   include Vault::AttributeProxy
 
-  vault_attribute :date_of_birth_plaintext
-  vault_attribute_proxy :date_of_birth, :date_of_birth_plaintext, type: :date
+  vault_attribute :date_of_birth_plaintext, type: :date
+  vault_attribute_proxy :date_of_birth, :date_of_birth_plaintext
 
   vault_attribute :county_plaintext, encrypted_column: :county_encrypted
   vault_attribute_proxy :county, :county_plaintext
@@ -37,7 +37,7 @@ class Person < ActiveRecord::Base
   vault_attribute :driving_licence_number, convergent: true
   validates :driving_licence_number, vault_uniqueness: true, allow_nil: true
 
-  vault_attribute :ip_address, convergent: true, serialize: :ipaddr
+  vault_attribute :ip_address, convergent: true, serialize: :ipaddr, type: 'IPAddr'
   validates :ip_address, vault_uniqueness: true, allow_nil: true
 end
 
