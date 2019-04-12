@@ -62,6 +62,10 @@ module Vault
           serializer.define_singleton_method(:decode, &options[:decode])
         end
 
+        unless serializer
+          serializer = Vault::Rails::Serializers::StringSerializer
+        end
+
         # Getter
         define_method("#{attribute}") do
           if instance_variable_defined?("@#{attribute}")
@@ -182,8 +186,7 @@ module Vault
         serializer = options[:serializer]
         convergent = options[:convergent]
 
-        # Apply the serializer to the value, if one exists
-        plaintext = serializer ? serializer.encode(value) : value
+        plaintext = serializer.encode(value)
 
         Vault::Rails.encrypt(path, key, plaintext, Vault.client, convergent)
       end

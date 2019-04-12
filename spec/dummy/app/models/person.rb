@@ -40,4 +40,3 @@ class Person < ActiveRecord::Base
   vault_attribute :ip_address, convergent: true, serialize: :ipaddr, type: 'IPAddr'
   validates :ip_address, vault_uniqueness: true, allow_nil: true
 end
-

@@ -423,6 +423,18 @@ describe Vault::Rails do
     end
   end
 
+  context 'when called with type other than string' do
+    it 'casts the value to the correct type' do
+      person = Person.new
+      date_string = '2000-10-10'
+      date = Date.parse(date_string)
+
+      person.date_of_birth_plaintext = date_string
+
+      expect(person.date_of_birth_plaintext).to eq date
+    end
+  end
+
   context 'with errors' do
     it 'raises the appropriate exception' do
       expect {
