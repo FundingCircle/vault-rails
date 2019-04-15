@@ -36,23 +36,7 @@ module Vault
         define_method("#{non_encrypted_attribute}=") do |value|
           super(value) unless options[:encrypted_attribute_only]
 
-          # Manual casting is necessary. Because if encrypted_attribute_only, we may not call super
-          # and cannot rely on ActiveRecord to do the casting for us.
-          type_constant_name = options.fetch(:type, :string).to_s.camelize
-
-          type = ActiveRecord::Type.const_get(type_constant_name).new
-
-          cast_value = if type.respond_to? :type_cast_from_user
-                         # ActiveRecord 4.2
-                         type.type_cast_from_user(value)
-                       elsif type.respond_to? :serialize
-                         # ActiveRecord 5.0
-                         type.serialize(value)
-                       else
-                         value
-                       end
-
-          send("#{encrypted_attribute}=", cast_value)
+          send("#{encrypted_attribute}=", value)
         end
       end
     end

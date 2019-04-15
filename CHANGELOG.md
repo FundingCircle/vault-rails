@@ -1,5 +1,13 @@
 # Vault Rails Changelog
 
+## v0.6.13 (April 12, 2019)
+
+IMPROVEMENTS
+- Add default `StringSerializer`, which will be used when no other serializer is defined
+
+BREAKING CHANGES
+- Move the type option from vault_attribute_proxy to vault_attribute
+
 ## v0.6.12 (March 14, 2019)
 
 NEW FEATURES
