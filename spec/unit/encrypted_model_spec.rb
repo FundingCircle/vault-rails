@@ -34,6 +34,30 @@ describe Vault::EncryptedModel do
       expect(person).to respond_to(:ssn_was)
     end
 
+    context 'with additional encrypted field' do
+      it 'updates the additional encrypted field using the specified key' do
+        first_name_encryption_key = SecureRandom.uuid
+        person = Person.new(first_name_encryption_key: first_name_encryption_key)
+
+        Vault::Rails.logical.write("transit/keys/dummy_people_first_name")
+        Vault::Rails.logical.write("transit/keys/#{first_name_encryption_key}")
+
+        person.first_name = 'John'
+
+        expect(person.first_name).to eq 'John'
+        expect(person.first_name_custom_encrypted).to be_nil
+
+        person.save
+        person.reload
+
+        expect(person.first_name_custom_encrypted).not_to be_nil
+
+        plaintext = Vault::Rails.decrypt('transit', first_name_encryption_key, person.first_name_custom_encrypted, Vault.client, false)
+
+        expect(person.first_name).to eq(plaintext)
+      end
+    end
+
     context 'with custom attribute types' do
       it 'defines an integer attribute' do
         Vault::Rails.logical.write("transit/keys/dummy_people_integer_data")
@@ -158,6 +182,10 @@ describe Vault::EncryptedModel do
         "email_encrypted" => nil,
         "favorite_color" => nil,
         "favorite_color_encrypted" => nil,
+        "first_name" => nil,
+        "first_name_custom_encrypted" => nil,
+        "first_name_encrypted" => nil,
+        "first_name_encryption_key" => nil,
         "float_data" => nil,
         "float_data_encrypted" => nil,
         "id" => nil,
@@ -198,6 +226,9 @@ describe Vault::EncryptedModel do
         'driving_licence_number' => nil,
         'email' => nil,
         'favorite_color' => nil,
+        'first_name' => nil,
+        'first_name_custom_encrypted' => nil,
+        'first_name_encryption_key' => nil,
         'float_data' => nil,
         'id' => nil,
         'integer_data' => nil,

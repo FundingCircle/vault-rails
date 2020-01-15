@@ -45,6 +45,7 @@ module Vault
           path = options[:path] || "transit"
           key = options[:key] || "#{Vault::Rails.application}_#{table_name}_#{attribute_name}"
           convergent = options.fetch(:convergent, false)
+          additional_encrypted_columns = options[:additional_encrypted_columns]
 
           # Sanity check options!
           _vault_validate_options!(options)
@@ -86,7 +87,8 @@ module Vault
             path: path,
             serializer: serializer,
             encrypted_column: encrypted_column,
-            convergent: convergent
+            convergent: convergent,
+            additional_encrypted_columns: additional_encrypted_columns
           }
 
           self
@@ -386,8 +388,22 @@ module Vault
           # to get the ciphertext
           write_attribute(column, ciphertext)
 
+          additional_encrypted_columns = options[:additional_encrypted_columns] || []
+
+          result = { column => ciphertext }
+
+          additional_encrypted_columns.each do |additional_encrypted_column|
+            key = self.send(additional_encrypted_column[:key])
+
+            cipher_text = Vault::Rails.encrypt("transit", key, plaintext, Vault.client, false)
+
+            write_attribute(additional_encrypted_column[:name], cipher_text)
+
+            result[additional_encrypted_column[:name]] = cipher_text
+          end
+
           # Return the updated column so we can save
-          { column => ciphertext }
+          result
         end
 
         def unencrypted_attributes

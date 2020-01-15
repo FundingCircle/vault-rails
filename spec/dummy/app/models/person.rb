@@ -8,6 +8,10 @@ class Person < ActiveRecord::Base
 
   vault_attribute :passport_number, encrypted_column: :passport_number_encrypted
 
+  vault_attribute :first_name,
+    encrypted_column: :first_name_encrypted,
+    additional_encrypted_columns: [ { name: 'first_name_custom_encrypted', key: "first_name_encryption_key" } ]
+
   vault_attribute :county_plaintext, encrypted_column: :county_encrypted
   vault_attribute_proxy :county, :county_plaintext
 
