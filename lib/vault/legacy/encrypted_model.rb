@@ -40,6 +40,7 @@ module Vault
         #   a proc to decode the value with
         def vault_attribute(attribute, options = {})
           encrypted_column = options[:encrypted_column] || "#{attribute}_encrypted"
+          encrypted_copy = options[:encrypted_copy]
           path = options[:path] || "transit"
           key = options[:key] || "#{Vault::Rails.application}_#{table_name}_#{attribute}"
           convergent = options.fetch(:convergent, false)
@@ -116,6 +117,7 @@ module Vault
             path: path,
             serializer: serializer,
             encrypted_column: encrypted_column,
+            encrypted_copy: encrypted_copy,
             convergent: convergent
           }
 
@@ -191,6 +193,13 @@ module Vault
             raise Vault::Rails::ValidationFailedError, "Cannot specify " \
               "`:decode' without specifying `:encode' as well!"
           end
+
+          if options[:encrypted_copy]
+            if options[:encrypted_copy][:column].nil? || options[:encrypted_copy][:key_column].nil?
+              raise Vault::Rails::ValidationFailedError, "Cannot specify " \
+                "`:encrypted_copy` with missing `:column` or `:key_column`"
+            end
+          end
         end
 
         def vault_lazy_decrypt?
@@ -216,9 +225,11 @@ module Vault
           Vault::PerformInBatches.new(attribute, options).decrypt(records)
         end
 
-        def encrypt_value(attribute, value)
-          options = __vault_attributes[attribute]
+        def encrypt_attribute(attribute, value)
+          encrypt_value(value, __vault_attributes[attribute])
+        end
 
+        def encrypt_value(value, options)
           key        = options[:key]
           path       = options[:path]
           serializer = options[:serializer]
@@ -257,7 +268,7 @@ module Vault
                 raise ArgumentError, 'You cannot search with non-convergent fields'
               end
 
-              search_options[encrypted_column] = encrypt_value(attribute_name, attribute_value)
+              search_options[encrypted_column] = encrypt_attribute(attribute_name, attribute_value)
             end
           end
         end
@@ -369,18 +380,36 @@ module Vault
           plaintext = instance_variable_get("@#{attribute}")
 
           # Generate the ciphertext and store it back as an attribute
-          ciphertext = self.class.encrypt_value(attribute, plaintext)
+          ciphertext = self.class.encrypt_attribute(attribute, plaintext)
 
           # Write the attribute back, so that we don't have to reload the record
           # to get the ciphertext
           write_attribute(column, ciphertext)
 
           # Return the updated column so we can save
-          { column => ciphertext }
+          result = { column => ciphertext }
+
+          if options[:encrypted_copy]
+            key = self.send(options[:encrypted_copy][:key_column])
+            encryption_options = self.class.__vault_attributes[attribute].merge({ key: key })
+
+            copy_column = options[:encrypted_copy][:column]
+            copy_ciphertext = self.class.encrypt_value(plaintext, encryption_options)
+
+            write_attribute(copy_column, copy_ciphertext)
+            result[copy_column] = copy_ciphertext
+          end
+
+          result
         end
 
         def unencrypted_attributes
-          encrypted_attributes = self.class.__vault_attributes.values.map {|x| x[:encrypted_column].to_s }
+          encrypted_attributes = self.class.__vault_attributes.values.flat_map do |x|
+            [x[:encrypted_column].to_s].tap do |result|
+              result << x[:encrypted_copy][:column] if x[:encrypted_copy]
+            end
+          end
+
           attributes.delete_if { |attribute| encrypted_attributes.include?(attribute) }
         end
 

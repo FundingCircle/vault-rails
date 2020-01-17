@@ -10,7 +10,7 @@ class VaultUniquenessValidator < ActiveRecord::Validations::UniquenessValidator
 
     encrypted_column = attribute_options[:encrypted_column]
 
-    encrypted_value = record.class.encrypt_value(attribute, value)
+    encrypted_value = record.class.encrypt_attribute(attribute, value)
 
     super(record, encrypted_column, encrypted_value)
 
