@@ -40,6 +40,8 @@ module Vault
         #   a proc to decode the value with
         def vault_attribute(attribute, options = {})
           encrypted_column = options[:encrypted_column] || "#{attribute}_encrypted"
+          # TODO: Do we want default values?
+          encrypted_copy = options[:encrypted_copy]
           path = options[:path] || "transit"
           key = options[:key] || "#{Vault::Rails.application}_#{table_name}_#{attribute}"
           convergent = options.fetch(:convergent, false)
@@ -116,6 +118,7 @@ module Vault
             path: path,
             serializer: serializer,
             encrypted_column: encrypted_column,
+            encrypted_copy: encrypted_copy,
             convergent: convergent
           }
 
@@ -190,6 +193,13 @@ module Vault
           if options[:decode] && !options[:encode]
             raise Vault::Rails::ValidationFailedError, "Cannot specify " \
               "`:decode' without specifying `:encode' as well!"
+          end
+
+          if options[:encrypted_copy]
+            if options[:encrypted_copy][:column].nil? || options[:encrypted_copy][:key_column].nil?
+              raise Vault::Rails::ValidationFailedError, "Cannot specify " \
+                "`:encrypted_copy` without `:column` or `:key_column`"
+            end
           end
         end
 
@@ -376,7 +386,23 @@ module Vault
           write_attribute(column, ciphertext)
 
           # Return the updated column so we can save
-          { column => ciphertext }
+          result = { column => ciphertext }
+
+          if options[:encrypted_copy]
+            options = self.class.__vault_attributes[attribute]
+
+            key        = self.send(options[:encrypted_copy][:key_column])
+            path       = options[:path]
+            serializer = options[:serializer]
+            convergent = options[:convergent]
+
+            serialized_plaintext = serializer.encode(plaintext)
+
+            result[options[:encrypted_copy][:column]] =
+              Vault::Rails.encrypt(path, key, serialized_plaintext, Vault.client, convergent)
+          end
+
+          result
         end
 
         def unencrypted_attributes
