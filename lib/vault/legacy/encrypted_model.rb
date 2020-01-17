@@ -226,9 +226,7 @@ module Vault
           Vault::PerformInBatches.new(attribute, options).decrypt(records)
         end
 
-        def encrypt_value(attribute, value)
-          options = __vault_attributes[attribute]
-
+        def encrypt_value(value, options)
           key        = options[:key]
           path       = options[:path]
           serializer = options[:serializer]
@@ -267,7 +265,7 @@ module Vault
                 raise ArgumentError, 'You cannot search with non-convergent fields'
               end
 
-              search_options[encrypted_column] = encrypt_value(attribute_name, attribute_value)
+              search_options[encrypted_column] = encrypt_value(attribute_value, __vault_attributes[attribute_name])
             end
           end
         end
@@ -379,7 +377,7 @@ module Vault
           plaintext = instance_variable_get("@#{attribute}")
 
           # Generate the ciphertext and store it back as an attribute
-          ciphertext = self.class.encrypt_value(attribute, plaintext)
+          ciphertext = self.class.encrypt_value(plaintext, self.class.__vault_attributes[attribute])
 
           # Write the attribute back, so that we don't have to reload the record
           # to get the ciphertext
@@ -389,17 +387,14 @@ module Vault
           result = { column => ciphertext }
 
           if options[:encrypted_copy]
-            options = self.class.__vault_attributes[attribute]
+            key = self.send(options[:encrypted_copy][:key_column])
+            encryption_options = self.class.__vault_attributes[attribute].merge({ key: key })
 
-            key        = self.send(options[:encrypted_copy][:key_column])
-            path       = options[:path]
-            serializer = options[:serializer]
-            convergent = options[:convergent]
+            copy_column = options[:encrypted_copy][:column]
+            copy_ciphertext = self.class.encrypt_value(plaintext, encryption_options)
 
-            serialized_plaintext = serializer.encode(plaintext)
-
-            result[options[:encrypted_copy][:column]] =
-              Vault::Rails.encrypt(path, key, serialized_plaintext, Vault.client, convergent)
+            write_attribute(copy_column, copy_ciphertext)
+            result[copy_column] = copy_ciphertext
           end
 
           result
