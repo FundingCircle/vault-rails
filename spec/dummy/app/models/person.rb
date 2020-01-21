@@ -53,4 +53,34 @@ class Person < ActiveRecord::Base
     type: :time,
     encode: -> (raw) { raw.to_s if raw },
     decode: -> (raw) { raw.to_time if raw }
+
+  # Attributes with encrypted copy
+
+  vault_attribute :first_name,
+    encrypted_copy: {
+      column: 'first_name_custom_encrypted',
+      key_column: 'encryption_key'
+    }
+
+  vault_attribute :middle_name,
+    serialize: BinarySerializer,
+    encrypted_copy: {
+      column: 'middle_name_custom_encrypted',
+      key_column: 'encryption_key'
+    }
+
+  vault_attribute :last_name,
+    encrypted_copy: {
+      column: 'last_name_custom_encrypted',
+      key_column: 'encryption_key'
+    },
+    encode: ->(raw) { "xxx#{raw}xxx" },
+    decode: ->(raw) { raw && raw[3...-3] }
+
+  vault_attribute :age,
+    type: :integer,
+    encrypted_copy: {
+      column: 'age_custom_encrypted',
+      key_column: 'encryption_key'
+    }
 end

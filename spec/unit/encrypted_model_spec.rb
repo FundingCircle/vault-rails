@@ -34,6 +34,78 @@ describe Vault::EncryptedModel do
       expect(person).to respond_to(:ssn_was)
     end
 
+    context 'with encrypted_copy option' do
+      let(:encryption_key) { SecureRandom.uuid }
+      let(:person) { Person.new(encryption_key: encryption_key) }
+
+      before do
+        Vault::Rails.logical.write("transit/keys/#{encryption_key}")
+      end
+
+      it 'updates the encrypted_copy field using the specified key_column' do
+        Vault::Rails.logical.write("transit/keys/dummy_people_first_name")
+        person.first_name = 'John'
+
+        expect(person.first_name_custom_encrypted).to be_nil
+
+        person.save
+        person.reload
+
+        expect(person.first_name_custom_encrypted).not_to be_nil
+
+        decrypted_value = Vault::Rails.decrypt('transit', encryption_key, person.first_name_custom_encrypted, Vault.client, false)
+
+        expect(person.first_name).to eq(decrypted_value)
+      end
+
+      it 'uses the given serializer' do
+        Vault::Rails.logical.write("transit/keys/dummy_people_middle_name")
+        person.middle_name = 'Vincent'
+
+        expect(person.middle_name_custom_encrypted).to be_nil
+
+        person.save
+        person.reload
+
+        expect(person.middle_name_custom_encrypted).not_to be_nil
+
+        decrypted_value = Vault::Rails.decrypt('transit', encryption_key, person.middle_name_custom_encrypted, Vault.client, false)
+
+        middle_name_binary = person.middle_name.unpack("B*")[0]
+        expect(decrypted_value).to eq(middle_name_binary)
+      end
+
+      it 'uses the custom encode/decode' do
+        Vault::Rails.logical.write("transit/keys/dummy_people_last_name")
+        person.last_name = 'Green'
+
+        expect(person.last_name_custom_encrypted).to be_nil
+
+        person.save
+        person.reload
+
+        expect(person.last_name_custom_encrypted).not_to be_nil
+
+        decrypted_value = Vault::Rails.decrypt('transit', encryption_key, person.last_name_custom_encrypted, Vault.client, false)
+        expect(decrypted_value).to eq('xxxGreenxxx')
+      end
+
+      it 'does type casting' do
+        Vault::Rails.logical.write("transit/keys/dummy_people_age")
+        person.age = 20.675
+
+        expect(person.age_custom_encrypted).to be_nil
+
+        person.save
+        person.reload
+
+        expect(person.age_custom_encrypted).not_to be_nil
+
+        decrypted_value = Vault::Rails.decrypt('transit', encryption_key, person.age_custom_encrypted, Vault.client, false)
+        expect(decrypted_value).to eq('20')
+      end
+    end
+
     context 'with custom attribute types' do
       it 'defines an integer attribute' do
         Vault::Rails.logical.write("transit/keys/dummy_people_integer_data")
@@ -139,6 +211,9 @@ describe Vault::EncryptedModel do
 
     it 'returns all attributes' do
       expect(person.attributes).to eq(
+        "age" => nil,
+        "age_custom_encrypted" => nil,
+        "age_encrypted" => nil,
         "business_card" => nil,
         "business_card_encrypted" => nil,
         "cc_encrypted" => nil,
@@ -158,6 +233,10 @@ describe Vault::EncryptedModel do
         "email_encrypted" => nil,
         "favorite_color" => nil,
         "favorite_color_encrypted" => nil,
+        "first_name" => nil,
+        "first_name_custom_encrypted" => nil,
+        "first_name_encrypted" => nil,
+        "encryption_key" => nil,
         "float_data" => nil,
         "float_data_encrypted" => nil,
         "id" => nil,
@@ -165,6 +244,12 @@ describe Vault::EncryptedModel do
         "integer_data_encrypted" => nil,
         "ip_address" => nil,
         "ip_address_encrypted" => nil,
+        "last_name" => nil,
+        "last_name_custom_encrypted" => nil,
+        "last_name_encrypted" => nil,
+        "middle_name" => nil,
+        "middle_name_custom_encrypted" => nil,
+        "middle_name_encrypted" => nil,
         "name" => nil,
         "non_ascii" => nil,
         "non_ascii_encrypted" => nil,
@@ -187,6 +272,7 @@ describe Vault::EncryptedModel do
 
     it 'returns all attributes apart from encrypted fields' do
       expect(person.unencrypted_attributes).to eq(
+        'age' => nil,
         'business_card' => nil,
         'county' => nil,
         'county_plaintext' => nil,
@@ -197,11 +283,15 @@ describe Vault::EncryptedModel do
         'details' => nil,
         'driving_licence_number' => nil,
         'email' => nil,
+        'encryption_key' => nil,
         'favorite_color' => nil,
+        'first_name' => nil,
         'float_data' => nil,
         'id' => nil,
         'integer_data' => nil,
         'ip_address' => nil,
+        'last_name' => nil,
+        'middle_name' => nil,
         'name' => nil,
         'non_ascii' => nil,
         'passport_number' => nil,
