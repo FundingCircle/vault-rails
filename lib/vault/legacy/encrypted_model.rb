@@ -111,6 +111,11 @@ module Vault
             end
           end
 
+          # Encrypted copy serialization
+          if encrypted_copy
+            serialize :encryption_metadata, JSON
+          end
+
           # Make a note of this attribute so we can use it in the future (maybe).
           __vault_attributes[attribute.to_sym] = {
             key: key,
@@ -195,9 +200,9 @@ module Vault
           end
 
           if options[:encrypted_copy]
-            if options[:encrypted_copy][:column].nil? || options[:encrypted_copy][:key_column].nil?
+            if options[:encrypted_copy][:column].nil? || options[:encrypted_copy][:key].nil?
               raise Vault::Rails::ValidationFailedError, "Cannot specify " \
-                "`:encrypted_copy` with missing `:column` or `:key_column`"
+                "`:encrypted_copy` with missing `:column` or `:key`"
             end
           end
         end
@@ -359,9 +364,16 @@ module Vault
           changes = {}
 
           self.class.__vault_attributes.each do |attribute, options|
-            if c = self.__vault_encrypt_attribute!(attribute, options)
-              changes.merge!(c)
+            if change = self.__vault_encrypt_attribute!(attribute, options)
+              changes.merge!(change) { |_, old_value, new_value| old_value + new_value }
             end
+          end
+
+          if changes[:encryption_metadata]
+            encryption_metadata_with_changes = __vault_merge_encryption_metadata_changes(changes[:encryption_metadata])
+
+            changes[:encryption_metadata] = encryption_metadata_with_changes
+            write_attribute(:encryption_metadata, encryption_metadata_with_changes)
           end
 
           changes
@@ -390,11 +402,12 @@ module Vault
           result = { column => ciphertext }
 
           if options[:encrypted_copy]
-            key = self.send(options[:encrypted_copy][:key_column])
-            encryption_options = self.class.__vault_attributes[attribute].merge({ key: key })
+            encryption_metadata = __vault_get_encryption_metadata(attribute, options[:encrypted_copy])
+            result[:encryption_metadata] = [encryption_metadata]
 
-            copy_column = options[:encrypted_copy][:column]
+            encryption_options = self.class.__vault_attributes[attribute].merge({ key: encryption_metadata['key'] })
             copy_ciphertext = self.class.encrypt_value(plaintext, encryption_options)
+            copy_column = options[:encrypted_copy][:column]
 
             write_attribute(copy_column, copy_ciphertext)
             result[copy_column] = copy_ciphertext
@@ -427,6 +440,37 @@ module Vault
 
             self.__vault_load_attributes!
           end
+        end
+
+        def __vault_get_encryption_metadata(attribute, options)
+          encryption_metadata = {}
+
+          field_path = options[:field_json_path] || "$.#{options[:column]}"
+
+          key = case options[:key]
+                when Symbol
+                  self.send(options[:key])
+                when Proc
+                  self.instance_exec &options[:key]
+                when String
+                  options[:key]
+                end
+
+          { 'field_path' => field_path, 'key' => key }
+        end
+
+        def __vault_merge_encryption_metadata_changes(encryption_metadata_changes)
+          return encryption_metadata_changes unless self.encryption_metadata.present?
+
+          encryption_metadata_changes.each do |change|
+            if existent_record = self.encryption_metadata.find { |record| record['field_path'] == change['field_path'] }
+              existent_record.merge!(change)
+            else
+              self.encryption_metadata << change
+            end
+          end
+
+          self.encryption_metadata
         end
       end
     end

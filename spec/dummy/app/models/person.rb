@@ -59,20 +59,20 @@ class Person < ActiveRecord::Base
   vault_attribute :first_name,
     encrypted_copy: {
       column: 'first_name_custom_encrypted',
-      key_column: 'encryption_key'
+      key: -> { "241b3098-656f-4120-bb8d-de5e0640f269" }
     }
 
   vault_attribute :middle_name,
     serialize: BinarySerializer,
     encrypted_copy: {
       column: 'middle_name_custom_encrypted',
-      key_column: 'encryption_key'
+      key: "241b3098-656f-4120-bb8d-de5e0640f269"
     }
 
   vault_attribute :last_name,
     encrypted_copy: {
       column: 'last_name_custom_encrypted',
-      key_column: 'encryption_key'
+      key: -> { "241b3098-656f-4120-bb8d-de5e0640f269" }
     },
     encode: ->(raw) { "xxx#{raw}xxx" },
     decode: ->(raw) { raw && raw[3...-3] }
@@ -81,6 +81,6 @@ class Person < ActiveRecord::Base
     type: :integer,
     encrypted_copy: {
       column: 'age_custom_encrypted',
-      key_column: 'encryption_key'
+      key: -> { "241b3098-656f-4120-bb8d-de5e0640f269" }
     }
 end
