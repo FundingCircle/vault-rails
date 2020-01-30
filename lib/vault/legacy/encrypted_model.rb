@@ -405,7 +405,8 @@ module Vault
             encryption_metadata = __vault_get_encryption_metadata(attribute, options[:encrypted_copy])
             result[:encryption_metadata] = [encryption_metadata]
 
-            encryption_options = self.class.__vault_attributes[attribute].merge({ key: encryption_metadata['key'] })
+            encrypted_copy_options = { key: encryption_metadata['key'], convergent: false }
+            encryption_options = self.class.__vault_attributes[attribute].merge(encrypted_copy_options)
             copy_ciphertext = self.class.encrypt_value(plaintext, encryption_options)
             copy_column = options[:encrypted_copy][:column]
 
