@@ -351,7 +351,7 @@ module Vault
         # @return [true]
         def __vault_persist_attributes!
           changes = __vault_encrypt_attributes!
-
+          changes[:encryption_metadata] = encryption_metadata if attribute_changed?(:encryption_metadata)
           # If there are any changes to the model, update them all at once,
           # skipping any callbacks and validation. This is okay, because we are
           # already in a transaction due to the callback.
@@ -365,15 +365,8 @@ module Vault
 
           self.class.__vault_attributes.each do |attribute, options|
             if change = self.__vault_encrypt_attribute!(attribute, options)
-              changes.merge!(change) { |_, old_value, new_value| old_value + new_value }
+              changes.merge!(change)
             end
-          end
-
-          if changes[:encryption_metadata]
-            encryption_metadata_with_changes = __vault_merge_encryption_metadata_changes(changes[:encryption_metadata])
-
-            changes[:encryption_metadata] = encryption_metadata_with_changes
-            write_attribute(:encryption_metadata, encryption_metadata_with_changes)
           end
 
           changes
@@ -402,10 +395,9 @@ module Vault
           result = { column => ciphertext }
 
           if options[:encrypted_copy]
-            encryption_metadata = __vault_get_encryption_metadata(attribute, options[:encrypted_copy])
-            result[:encryption_metadata] = [encryption_metadata]
+            encryption_metadata = __vault_find_or_create_encryption_metadata_for(options[:encrypted_copy])
 
-            encrypted_copy_options = { key: encryption_metadata['key'], convergent: false }
+            encrypted_copy_options = { key: encryption_metadata['encryption_key_name'], convergent: false }
             encryption_options = self.class.__vault_attributes[attribute].merge(encrypted_copy_options)
             copy_ciphertext = self.class.encrypt_value(plaintext, encryption_options)
             copy_column = options[:encrypted_copy][:column]
@@ -443,10 +435,15 @@ module Vault
           end
         end
 
-        def __vault_get_encryption_metadata(attribute, options)
-          encryption_metadata = {}
-
+        def __vault_find_or_create_encryption_metadata_for(options)
+          encryption_metadata = read_attribute(:encryption_metadata) || []
           field_path = options[:field_json_path] || "$.#{options[:column]}"
+
+          attribute_metadata = encryption_metadata.find do |attribute_metadata|
+            attribute_metadata['field_path'] == field_path
+          end
+
+          return attribute_metadata if attribute_metadata
 
           key = case options[:key]
                 when Symbol
@@ -457,21 +454,11 @@ module Vault
                   options[:key]
                 end
 
-          { 'field_path' => field_path, 'key' => key }
-        end
+          attribute_metadata = { 'field_path' => field_path, 'encryption_key_name' => key }
+          encryption_metadata << attribute_metadata
+          self.encryption_metadata = encryption_metadata
 
-        def __vault_merge_encryption_metadata_changes(encryption_metadata_changes)
-          return encryption_metadata_changes unless self.encryption_metadata.present?
-
-          encryption_metadata_changes.each do |change|
-            if existent_record = self.encryption_metadata.find { |record| record['field_path'] == change['field_path'] }
-              existent_record.merge!(change)
-            else
-              self.encryption_metadata << change
-            end
-          end
-
-          self.encryption_metadata
+          attribute_metadata
         end
       end
     end
