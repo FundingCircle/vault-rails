@@ -128,7 +128,7 @@ jobs:
 
       - run:
           shell: /bin/bash -l
-          command: rvm use --default 2.5.1
+          command: rvm use --default 2.5.7
 
       - run:
           name: Install Gem Versioner
@@ -165,7 +165,7 @@ jobs:
 
       - run:
           shell: /bin/bash -l
-          command: rvm use --default 2.5.1
+          command: rvm use --default 2.5.7
 
       - run:
           name: Install Gem Versioner
