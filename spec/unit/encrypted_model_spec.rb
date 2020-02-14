@@ -38,10 +38,6 @@ describe Vault::EncryptedModel do
       let(:person) { Person.new }
       let(:encryption_key) { "241b3098-656f-4120-bb8d-de5e0640f269" }
 
-      before do
-        Vault::Rails.logical.write("transit/keys/#{encryption_key}")
-      end
-
       it 'updates the encrypted_copy field using the specified key method' do
         person.first_name = 'John'
 
@@ -159,6 +155,49 @@ describe Vault::EncryptedModel do
         last_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.last_name_custom_encrypted" }['encryption_key_name']
         decrypted_last_name = Vault::Rails.decrypt('transit', last_name_key, person.last_name_custom_encrypted, Vault.client, false)
         expect(decrypted_last_name).to eq("xxxDoexxx")
+      end
+
+      context 'when combined with #vault_persist_before_save!' do
+        let(:person) { EagerPerson.new }
+
+        it 'supports setting multiple attributes at once' do
+          person.first_name = 'John'
+          person.last_name = 'Doe'
+
+          person.save
+          person.reload
+
+          first_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.first_name_custom_encrypted" }['encryption_key_name']
+          last_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.last_name_custom_encrypted" }['encryption_key_name']
+
+          decrypted_first_name = Vault::Rails.decrypt('transit', first_name_key, person.first_name_custom_encrypted, Vault.client, false)
+          decrypted_last_name = Vault::Rails.decrypt('transit', last_name_key, person.last_name_custom_encrypted, Vault.client, false)
+
+          expect(decrypted_first_name).to eq('John')
+          expect(decrypted_last_name).to eq("Doe")
+        end
+
+        it 'supports setting multiple attributes one by one' do
+          person.first_name = 'John'
+          person.save
+          person.reload
+
+          first_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.first_name_custom_encrypted" }['encryption_key_name']
+          decrypted_first_name = Vault::Rails.decrypt('transit', first_name_key, person.first_name_custom_encrypted, Vault.client, false)
+          expect(decrypted_first_name).to eq('John')
+
+          person.last_name = 'Doe'
+          person.save
+          person.reload
+
+          first_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.first_name_custom_encrypted" }['encryption_key_name']
+          decrypted_first_name = Vault::Rails.decrypt('transit', first_name_key, person.first_name_custom_encrypted, Vault.client, false)
+          expect(decrypted_first_name).to eq('John')
+
+          last_name_key = person.encryption_metadata.find { |record| record['field_path'] == "$.last_name_custom_encrypted" }['encryption_key_name']
+          decrypted_last_name = Vault::Rails.decrypt('transit', last_name_key, person.last_name_custom_encrypted, Vault.client, false)
+          expect(decrypted_last_name).to eq("Doe")
+        end
       end
     end
 
