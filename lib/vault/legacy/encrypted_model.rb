@@ -445,20 +445,24 @@ module Vault
 
           return attribute_metadata if attribute_metadata
 
-          key = case options[:key]
-                when Symbol
-                  self.send(options[:key])
-                when Proc
-                  self.instance_exec &options[:key]
-                when String
-                  options[:key]
-                end
+          key = get_key_from_encrypted_copy_options(options)
 
           attribute_metadata = { 'field_path' => field_path, 'encryption_key_name' => key }
           encryption_metadata << attribute_metadata
           self.encryption_metadata = encryption_metadata
 
           attribute_metadata
+        end
+
+        def get_key_from_encrypted_copy_options(options)
+          case options[:key]
+          when Symbol
+            self.send(options[:key])
+          when Proc
+            self.instance_exec &options[:key]
+          when String
+            options[:key]
+          end
         end
       end
     end
