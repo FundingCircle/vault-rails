@@ -373,15 +373,8 @@ module Vault
 
           self.class.__vault_attributes.each do |attribute, options|
             if change = self.__vault_encrypt_attribute!(attribute, options, in_after_save: in_after_save)
-              changes.merge!(change) { |_, old_value, new_value| old_value + new_value }
+              changes.merge!(change)
             end
-          end
-
-          if changes[:encryption_metadata]
-            encryption_metadata_with_changes = __vault_merge_encryption_metadata_changes(changes[:encryption_metadata])
-
-            changes[:encryption_metadata] = encryption_metadata_with_changes
-            write_attribute(:encryption_metadata, encryption_metadata_with_changes)
           end
 
           changes
