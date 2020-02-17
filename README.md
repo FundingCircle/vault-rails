@@ -188,6 +188,23 @@ vault_attribute :address,
 VaultRails decrypts all the encrypted attributes in an `after_initialize` callback. Although this is useful sometimes, other times it may be unnecessary. For example you may not need all or any of the encrypted attributes.
 In such cases, you can use `vault_lazy_decrypt!` in your model, and VaultRails will decrypt the attributes, one by one, only when they are needed.
 
+### Encrypted copy
+The encrypted copy option allows you to have an additional ciphertext column which is encrypted with a additional key. This means that the data will be encrypted twice - once with the column/model-based key and additionally with another custom key. You can specify the additional ciphertext column and encryption key like this:
+
+```ruby
+vault_attribute :first_name,
+  encrypted_copy: {
+    column: 'first_name_user_based_encrypted',
+    key: -> { "#{user_uuid}_key" }
+  }
+```
+
+In this example `first_name_user_based_encrypted` is the additional ciphertext field.
+The key that is used to encrypt the ciphertext contains `user_uuid` which means the encryption key is unique per user. That key is saved on an additional column called `encryption_metadata`.
+Besides the additional two columns the rest of the encryption/decryption logic stays the same - there is `first_name_encrypted` column which contains ciphertext encrypted with `#{app}_#{table}_#{column}` default key, which is also used during decryption (the encrypted copy is not used for decryption).
+
+The purpose of the encrypted copy would be to have another version of the data encrypted by user key and provide both the ciphertext and the key together for other services to consume.
+
 Caveats
 -------
 
