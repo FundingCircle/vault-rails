@@ -208,7 +208,7 @@ module Vault
                cipher.random_iv
              end
 
-        Base64.strict_encode64(iv + cipher.update(plaintext) + cipher.final)
+        Base64.strict_encode64(iv + cipher.update(plaintext.to_s) + cipher.final)
       end
 
       # Perform in-memory encryption. This is useful for testing and development.
